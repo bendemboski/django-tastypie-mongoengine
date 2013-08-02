@@ -913,6 +913,61 @@ class BasicTest(test_runner.MongoEngineTestCase):
 
         self.assertEqual(response['name'], 'Person 1')
 
+    def test_embeddedreferencedlist_create(self):
+        response = self.c.post(self.resourceListURI('person'), '{"name": "Person 1"}', content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+
+        person1_uri = response['location']
+
+        response = self.c.post(self.resourceListURI('embeddedreferencedlistfieldtest'), '{"embedded": {"referencedlist": ["' + self.fullURItoAbsoluteURI(person1_uri) + '"]}}', content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+
+        person = resources.PersonResource().get_via_uri(self.fullURItoAbsoluteURI(person1_uri))
+        obj = resources.EmbeddedReferencedListFieldTestResource().get_via_uri(self.fullURItoAbsoluteURI(response['location']))
+        self.assertListEqual(obj.embedded.referencedlist, [person])
+
+    def test_embeddedreferencedlist_get(self):
+        person = documents.Person.objects.create(name="Person 1")
+        obj = documents.EmbeddedReferencedListFieldTest.objects.create(embedded=documents.EmbeddedWithReferencedList(referencedlist=[person]))
+
+        response = self.c.get(resources.EmbeddedReferencedListFieldTestResource().get_resource_uri(obj))
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+
+        embedded = response['embedded']
+        self.assertIn('referencedlist', embedded)
+        self.assertEqual(embedded['referencedlist'], [resources.PersonResource().get_resource_uri(person)])
+
+    def test_listofembeddedreferencedlist_create(self):
+        response = self.c.post(self.resourceListURI('person'), '{"name": "Person 1"}', content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+
+        person1_uri = response['location']
+
+        response = self.c.post(self.resourceListURI('listofembeddedreferencedlistfieldtest'), '{"embeddedlist": [{"referencedlist": ["' + self.fullURItoAbsoluteURI(person1_uri) + '"]}]}', content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+
+        person = resources.PersonResource().get_via_uri(self.fullURItoAbsoluteURI(person1_uri))
+        obj = resources.ListOfEmbeddedReferencedListFieldTestResource().get_via_uri(self.fullURItoAbsoluteURI(response['location']))
+        self.assertEqual(len(obj.embeddedlist), 1)
+        self.assertListEqual(obj.embeddedlist[0].referencedlist, [person])
+
+    def test_listofembeddedreferencedlist_get(self):
+        person = documents.Person.objects.create(name="Person 1")
+        obj = documents.ListOfEmbeddedReferencedListFieldTest.objects.create(embeddedlist=[
+            documents.EmbeddedWithReferencedList(referencedlist=[person])
+        ])
+
+        response = self.c.get(resources.ListOfEmbeddedReferencedListFieldTestResource().get_resource_uri(obj))
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+
+        self.assertIn('embeddedlist', response)
+        self.assertEqual(len(response['embeddedlist']), 1)
+        embedded = response['embeddedlist'][0]
+        self.assertIn('referencedlist', embedded)
+        self.assertEqual(embedded['referencedlist'], [resources.PersonResource().get_resource_uri(person)])
+
     def test_polymorphic_schema(self):
         person_schema_uri = self.resourceListURI('person') + 'schema/'
 
