@@ -256,7 +256,12 @@ class ReferencedListField(TastypieMongoengineMixin, fields.ToManyField):
         }
 
     def dehydrate(self, bundle, for_list=True):
-        if not bundle.obj or not bundle.obj.pk:
+        # Unlike Tastypie's base implementation of this method, we do not need
+        # to check for bundle.obj.pk because to-many relationships do not
+        # depend on the source object having a pk as they are just implemented
+        # as lists, rather than back references or join tables. In fact, this
+        # might be an embedded document, which may not ever have a pk.
+        if not bundle.obj:
             if not self.null:
                 raise exceptions.ApiFieldError("The document %r does not have a primary key and can not be used in a ReferencedList context." % bundle.obj)
 
